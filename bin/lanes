@@ -28,10 +28,7 @@ case "$cmd" in
   merge)
     if [ $# -eq 0 ]; then
       CURRENT="$(git branch --show-current)"
-      echo "Available lanes to merge into $CURRENT:"
-      echo
-      printf "  %-30s %8s %8s\n" "LANE" "AHEAD" "BEHIND"
-      git worktree list --porcelain | awk '
+      rows="$(git worktree list --porcelain | awk '
         /^worktree / { p=$2 }
         /^branch /   { b=$2; sub("refs/heads/", "", b)
                        nb=p; sub(".*/","",nb)
@@ -39,9 +36,20 @@ case "$cmd" in
       ' | while IFS=$'\t' read -r short branch; do
         [ "$branch" = "$CURRENT" ] && continue
         ahead="$(git rev-list --count "$CURRENT..$branch" 2>/dev/null || echo 0)"
+        [ "$ahead" -eq 0 ] && continue
         behind="$(git rev-list --count "$branch..$CURRENT" 2>/dev/null || echo 0)"
-        printf "  %-30s %8s %8s\n" "$short" "$ahead" "$behind"
-      done
+        printf "%s\t%s\t%s\n" "$ahead" "$behind" "$short"
+      done | sort -k1,1 -nr | head -10)"
+      echo "Lanes with commits to merge into $CURRENT:"
+      echo
+      if [ -z "$rows" ]; then
+        echo "  (none)"
+      else
+        printf "  %-30s %8s %8s\n" "LANE" "AHEAD" "BEHIND"
+        printf "%s\n" "$rows" | while IFS=$'\t' read -r ahead behind short; do
+          printf "  %-30s %8s %8s\n" "$short" "$ahead" "$behind"
+        done
+      fi
       echo
       echo "Run: lanes merge <lane>"
       exit 0
