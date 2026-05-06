@@ -3,7 +3,8 @@
 #
 # Modes:
 #   list  (default) — print a table of mergeable lanes, ranked safest first.
-#   pick            — print only the top recommendation with one-line reasoning.
+#   pick            — print the top recommendation with one-line reasoning.
+#   name            — print just the top recommendation's lane name (for scripts).
 #
 # "Safest" heuristic: fewest *unintegrated* commits (patch-id aware), tiebreak
 # by lane name. A lane with 0 unintegrated commits is skipped.
@@ -72,8 +73,14 @@ case "$MODE" in
     echo
     echo "Run: lanes merge $short"
     ;;
+  name)
+    if [ -z "$sorted" ]; then
+      exit 0
+    fi
+    printf '%s\n' "$sorted" | head -n1 | cut -f3
+    ;;
   *)
-    echo "usage: integrate-next.sh [list|pick]" >&2
+    echo "usage: integrate-next.sh [list|pick|name]" >&2
     exit 1
     ;;
 esac

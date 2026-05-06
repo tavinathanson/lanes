@@ -59,8 +59,8 @@ lanes start feat-auth         # launches Claude Code in worktree "feat-auth"
 | Want to... | Use |
 | --- | --- |
 | See lanes with commits to integrate | `lanes merge` |
-| "Which one should I integrate next?" | `lanes next` |
-| Actually integrate a lane | `lanes merge feat-auth` |
+| Integrate the safest lane automatically | `lanes next` (or `lanes merge next`) |
+| Integrate a specific lane | `lanes merge feat-auth` |
 
 `lanes merge` picks the integration mode automatically based on how many *unintegrated* commits the lane has (patch-id aware, so re-integrating a lane after more work counts only the new commits):
 
@@ -74,7 +74,7 @@ It refuses if your working tree is dirty. It does not push, squash, or delete th
 - **Just want to save state?** `/wrap` (lazy) or `/checkpoint <msg>` (you write it).
 - **About to step away?** `/handoff` writes a markdown summary other lanes can read.
 - **Curious what other lanes are doing?** `lanes monitor`.
-- **Ready to integrate?** `lanes next` to see the recommendation, then `lanes merge <name>`.
+- **Ready to integrate?** `lanes merge` to see options, `lanes next` to auto-merge the safest, or `lanes merge <name>` for a specific lane.
 - **Forgot everything?** `lanes help`.
 
 ## Files

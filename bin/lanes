@@ -31,11 +31,28 @@ case "$cmd" in
     exec "$SKILL/status.sh" main "$lane"
     ;;
   next)
-    exec "$SKILL/integrate-next.sh" pick
+    next_lane="$("$SKILL/integrate-next.sh" name)"
+    if [ -z "$next_lane" ]; then
+      echo "No lanes have unintegrated commits. Nothing to merge."
+      exit 0
+    fi
+    "$SKILL/integrate-next.sh" pick
+    echo
+    exec "$SKILL/merge-lane.sh" "$next_lane"
     ;;
   merge)
     if [ $# -eq 0 ]; then
       exec "$SKILL/integrate-next.sh" list
+    fi
+    if [ "${1:-}" = "next" ]; then
+      next_lane="$("$SKILL/integrate-next.sh" name)"
+      if [ -z "$next_lane" ]; then
+        echo "No lanes have unintegrated commits. Nothing to merge."
+        exit 0
+      fi
+      "$SKILL/integrate-next.sh" pick
+      echo
+      exec "$SKILL/merge-lane.sh" "$next_lane"
     fi
     exec "$SKILL/merge-lane.sh" "$@"
     ;;
@@ -56,8 +73,9 @@ CLI (run from your main worktree shell)
 
   Integrate
     lanes merge            Show lanes with commits to integrate (safest first)
-    lanes next             Recommend the safest single lane to integrate
-    lanes merge <lane>     Actually integrate that lane into the current branch
+    lanes merge <lane>     Integrate that lane into the current branch
+    lanes next             Integrate the safest lane automatically
+    lanes merge next       Same as 'lanes next'
 
 Slash commands (run inside a Claude Code lane)
 
