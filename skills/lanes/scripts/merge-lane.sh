@@ -2,7 +2,6 @@
 set -euo pipefail
 
 LANE="${1:-}"
-ORIG="$LANE"
 
 if [ -z "$LANE" ]; then
   echo "usage: merge-lane.sh <lane-name>"
@@ -56,26 +55,49 @@ if [ -z "$RESOLVED" ]; then
 fi
 LANE="$RESOLVED"
 
-AHEAD="$(git rev-list --count "$CURRENT..$LANE" 2>/dev/null || echo 0)"
+RAW_AHEAD="$(git rev-list --count "$CURRENT..$LANE" 2>/dev/null || echo 0)"
 BEHIND="$(git rev-list --count "$LANE..$CURRENT" 2>/dev/null || echo 0)"
 
-echo "Merging $LANE into $CURRENT"
-echo "  $LANE is $AHEAD commit(s) ahead, $BEHIND behind."
-echo
-echo "Lane commits to be merged:"
-git --no-pager log --oneline "$CURRENT..$LANE" || true
+# Patch-id-aware list of commits on $LANE not yet present on $CURRENT.
+# Survives prior cherry-picks: a commit whose patch is already applied
+# (with a different SHA) is filtered out.
+NEW_SHAS="$(git rev-list --cherry-pick --right-only --no-merges --reverse "$CURRENT...$LANE" 2>/dev/null || true)"
+if [ -z "$NEW_SHAS" ]; then
+  NEW_COUNT=0
+else
+  NEW_COUNT="$(printf '%s\n' "$NEW_SHAS" | grep -c .)"
+fi
+
+echo "Integrating $LANE into $CURRENT"
+echo "  raw: $RAW_AHEAD ahead / $BEHIND behind"
+echo "  unintegrated commits (patch-id aware): $NEW_COUNT"
 echo
 
-if [ "$AHEAD" = "0" ]; then
-  echo "No new commits on $LANE. Nothing to merge."
+if [ "$NEW_COUNT" = "0" ]; then
+  echo "Nothing to integrate: every commit on $LANE is already present on $CURRENT (by SHA or by patch)."
   exit 0
 fi
 
-SHORT="${ORIG#worktree-}"
-git merge --no-ff -m "merge: $SHORT" "$LANE"
+echo "Commits to land:"
+printf '%s\n' "$NEW_SHAS" | xargs -r -n1 git --no-pager log --oneline -1
+echo
+
+# Threshold:
+#   <=2 new commits -> cherry-pick (linear history, no merge commit, even when
+#                      $CURRENT has moved since the lane forked)
+#   >=3 new commits -> merge --ff (fast-forwards when possible; falls back to
+#                      a single merge commit if $CURRENT has moved)
+if [ "$NEW_COUNT" -le 2 ]; then
+  echo "Mode: cherry-pick ($NEW_COUNT commit(s))"
+  # shellcheck disable=SC2086
+  printf '%s\n' "$NEW_SHAS" | xargs git cherry-pick
+else
+  echo "Mode: merge --ff ($NEW_COUNT commit(s))"
+  git merge --ff "$LANE"
+fi
 
 echo
-echo "Merge complete on $CURRENT."
+echo "Integration complete on $CURRENT."
 echo "Latest:"
 git --no-pager log --oneline -5
 echo

@@ -24,6 +24,15 @@ A lane may have:
 - commits ahead of main
 - a .claude-lane-status.md handoff file
 
+## Surfaces
+
+Two ways to drive this skill:
+
+- **CLI (`lanes ...`)** — for cross-lane orchestration. Run from the main worktree shell. Subcommands: `start`, `monitor`, `log`, `list`, `inspect <lane>`, `merge` / `merge <lane>`, `next`.
+- **Slash commands** — only for actions that mutate the *current* lane: `/checkpoint`, `/wrap`, `/handoff`. There are intentionally no slash commands for cross-lane inspection or integration; if the user asks while inside a lane, run the CLI via Bash (e.g. `lanes monitor`).
+
+The CLI scripts live under `skills/lanes/scripts/` and Claude can invoke them directly when summarizing lane state.
+
 ## Monitoring workflow
 
 When asked to monitor:
@@ -101,15 +110,15 @@ Rules:
 - Do not squash lane commits during active work.
 - Do not amend lane commits unless explicitly requested.
 - Prefer small commits with clear messages.
-- Prefix checkpoint commits with lane(BRANCH):.
 - Before integration, inspect commits ahead of main.
-- During integration, preserve history with merge --no-ff or cherry-pick -x when useful.
+- During integration, prefer linear history: cherry-pick small lanes (1-2 commits), `merge --ff` larger ones (3+).
 - If two lanes touch the same files, keep their commits separate until integration.
 - A clean git merge does not prove semantic compatibility.
 
-When integrating:
-- Use merge --no-ff to preserve the lane as a branch-level unit.
-- Use cherry-pick -x to pull selected commits while retaining original commit references.
+When integrating (the `merge-lane.sh` script does this automatically):
+- Count *unintegrated* commits using patch-id matching (`git rev-list --cherry-pick --right-only`), so a lane re-integrated after more work counts only the new commits.
+- 1-2 new commits → cherry-pick those exact SHAs onto the target.
+- 3+ new commits → `git merge --ff` (fast-forward when target hasn't moved; one merge commit only when it has).
 - Avoid squashing unless the user explicitly asks.
 
 ## Safety

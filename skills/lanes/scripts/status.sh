@@ -2,6 +2,7 @@
 set -euo pipefail
 
 BASE="${1:-main}"
+FILTER="${2:-}"   # optional: short name OR branch name; only matching lane(s) are shown
 
 git worktree list --porcelain | awk '
   /^worktree / { path=$2 }
@@ -12,6 +13,9 @@ git worktree list --porcelain | awk '
   }
 ' | while IFS='|' read -r path branch; do
   short="${path##*/}"
+  if [ -n "$FILTER" ] && [ "$FILTER" != "$short" ] && [ "$FILTER" != "$branch" ]; then
+    continue
+  fi
   echo "========================================"
   echo "Lane: $short    (branch: $branch)"
   echo "Path: $path"

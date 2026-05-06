@@ -1,6 +1,6 @@
 # lanes (skill)
 
-Run multiple Claude Code instances in parallel on the same repo, each in its own git worktree (a **lane**). This skill helps you start, watch, save, and merge them locally. Nothing here pushes to GitHub.
+Run multiple Claude Code instances in parallel on the same repo, each in its own git worktree (a **lane**). This skill helps you start, watch, save, and integrate them locally. Nothing here pushes to GitHub.
 
 ## The one thing to remember
 
@@ -10,11 +10,18 @@ lanes help
 
 That prints the full cheat sheet. Below is the same thing organized by what you're trying to do.
 
+## Two surfaces, one rule of thumb
+
+- **CLI (`lanes ...`)** — orchestrates *across* lanes. Run from your main worktree shell.
+- **Slash commands (`/...`)** — mutate the *current* lane. Run from inside a Claude Code lane.
+
+Anything that looks at multiple lanes (status, logs, integration) lives in the CLI. Anything that commits to the lane you're in lives in slash commands.
+
 ## Lane names: short name vs branch
 
 Refer to a lane by its **short name** — the worktree directory name (e.g. `esc`, `feat-auth`). That's what you type into every command here.
 
-The underlying git branch is `worktree-<name>` (Claude Code's `--worktree` flag picks that prefix; we don't control it). You'll see the branch in `git log` and in `/monitor` output rendered as:
+The underlying git branch is `worktree-<name>` (Claude Code's `--worktree` flag picks that prefix; we don't control it). You'll see the branch in `git log` and in `lanes monitor` output rendered as:
 
 ```
 Lane: esc    (branch: worktree-esc)
@@ -38,39 +45,45 @@ lanes start feat-auth         # launches Claude Code in worktree "feat-auth"
 | Save progress, Claude writes the message | `/wrap` |
 | Update human-readable handoff notes | `/handoff` |
 
-### 3. Look around (works inside Claude or from the shell)
-
-| Want to... | Inside Claude | From shell |
-| --- | --- | --- |
-| Status + overlap across all lanes | `/monitor` | `lanes monitor` |
-| Commit history for all lanes | `/log-lanes` | `lanes log` |
-| Inspect one lane | `/lane feat-auth` | — |
-| List worktrees/branches | — | `lanes list` |
-
-### 4. Bring a lane home
+### 3. Look around (from your main worktree shell)
 
 | Want to... | Use |
 | --- | --- |
-| "Which lane should I merge next?" | `/integrate-next` |
-| Actually merge a lane into the current branch | `/merge-lane feat-auth` or `lanes merge feat-auth` |
+| Status + overlap across all lanes | `lanes monitor` |
+| Commit history for all lanes | `lanes log` |
+| List worktrees/branches | `lanes list` |
+| Detail view of one lane | `lanes inspect feat-auth` |
 
-`/merge-lane` uses `--no-ff` so the lane shows up as a unit in history. It refuses if your working tree is dirty. It does not push, squash, or delete the lane.
+### 4. Bring a lane home (from your main worktree shell)
+
+| Want to... | Use |
+| --- | --- |
+| See lanes with commits to integrate | `lanes merge` |
+| "Which one should I integrate next?" | `lanes next` |
+| Actually integrate a lane | `lanes merge feat-auth` |
+
+`lanes merge` picks the integration mode automatically based on how many *unintegrated* commits the lane has (patch-id aware, so re-integrating a lane after more work counts only the new commits):
+
+- **1-2 new commits** → cherry-pick (linear history, no merge commit even when target moved).
+- **3+ new commits** → `git merge --ff` (fast-forward when possible; one merge commit only if the target moved since the lane forked).
+
+It refuses if your working tree is dirty. It does not push, squash, or delete the lane.
 
 ## When-to-use cheat sheet
 
 - **Just want to save state?** `/wrap` (lazy) or `/checkpoint <msg>` (you write it).
 - **About to step away?** `/handoff` writes a markdown summary other lanes can read.
-- **Curious what other lanes are doing?** `/monitor`.
-- **Ready to integrate?** `/integrate-next` to pick the safest one, then `/merge-lane <name>`.
+- **Curious what other lanes are doing?** `lanes monitor`.
+- **Ready to integrate?** `lanes next` to see the recommendation, then `lanes merge <name>`.
 - **Forgot everything?** `lanes help`.
 
 ## Files
 
 - `bin/lanes` — shell dispatcher (symlinked into `~/.local/bin/lanes`).
-- `commands/*.md` — slash commands (symlinked into `~/.claude/commands/`).
-- `skills/lanes/scripts/*.sh` — underlying scripts both layers call.
+- `commands/*.md` — slash commands (symlinked into `~/.claude/commands/`). Lane-internal only: `checkpoint`, `wrap`, `handoff`.
+- `skills/lanes/scripts/*.sh` — underlying scripts the CLI calls.
 - `skills/lanes/SKILL.md` — instructions Claude follows when coordinating lanes.
 
 ## Safety
 
-The skill never pushes to GitHub, never squashes, never deletes worktrees or branches without you saying so. Merging is local only.
+The skill never pushes to GitHub, never squashes, never deletes worktrees or branches without you saying so. Integration is local only.

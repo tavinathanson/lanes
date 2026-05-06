@@ -22,37 +22,20 @@ case "$cmd" in
   log)
     exec "$SKILL/log-lanes.sh" "${1:-main}"
     ;;
-  lanes)
+  list)
     exec "$SKILL/lanes.sh" "${1:-main}"
+    ;;
+  inspect)
+    lane="${1:-}"
+    [ -z "$lane" ] && { echo "usage: lanes inspect <lane>"; exit 1; }
+    exec "$SKILL/status.sh" main "$lane"
+    ;;
+  next)
+    exec "$SKILL/integrate-next.sh" pick
     ;;
   merge)
     if [ $# -eq 0 ]; then
-      CURRENT="$(git branch --show-current)"
-      rows="$(git worktree list --porcelain | awk '
-        /^worktree / { p=$2 }
-        /^branch /   { b=$2; sub("refs/heads/", "", b)
-                       nb=p; sub(".*/","",nb)
-                       print nb "\t" b }
-      ' | while IFS=$'\t' read -r short branch; do
-        [ "$branch" = "$CURRENT" ] && continue
-        ahead="$(git rev-list --count "$CURRENT..$branch" 2>/dev/null || echo 0)"
-        [ "$ahead" -eq 0 ] && continue
-        behind="$(git rev-list --count "$branch..$CURRENT" 2>/dev/null || echo 0)"
-        printf "%s\t%s\t%s\n" "$ahead" "$behind" "$short"
-      done | sort -k1,1 -nr | head -10)"
-      echo "Lanes with commits to merge into $CURRENT:"
-      echo
-      if [ -z "$rows" ]; then
-        echo "  (none)"
-      else
-        printf "  %-30s %8s %8s\n" "LANE" "AHEAD" "BEHIND"
-        printf "%s\n" "$rows" | while IFS=$'\t' read -r ahead behind short; do
-          printf "  %-30s %8s %8s\n" "$short" "$ahead" "$behind"
-        done
-      fi
-      echo
-      echo "Run: lanes merge <lane>"
-      exit 0
+      exec "$SKILL/integrate-next.sh" list
     fi
     exec "$SKILL/merge-lane.sh" "$@"
     ;;
@@ -60,29 +43,27 @@ case "$cmd" in
     cat <<'EOF'
 lanes — Claude Code multi-worktree dispatcher
 
-WHERE ARE YOU?
+CLI (run from your main worktree shell)
 
-  Outside any lane (in main worktree)
-    lanes start <lane>      Launch Claude Code in a worktree (creates if needed)
-    lanes monitor           Status + overlap across all lanes
-    lanes log               Commit history for every lane
+  Start
+    lanes start <lane>     Launch Claude Code in a worktree (creates if needed)
+
+  Look around
+    lanes monitor          Status + overlap across all lanes
+    lanes log              Commit history for every lane
     lanes list             List worktrees and lane branches
-    lanes merge <lane>      Merge a finished lane into the current branch
+    lanes inspect <lane>   Detail view of a single lane
 
-  Inside a Claude Code lane (slash commands)
-    While working
-      /handoff           Update .claude-lane-status.md (handoff notes)
-      /checkpoint <msg>  Commit current changes with your message
-      /wrap              Auto-write a 1-2 sentence message and commit
+  Integrate
+    lanes merge            Show lanes with commits to integrate (safest first)
+    lanes next             Recommend the safest single lane to integrate
+    lanes merge <lane>     Actually integrate that lane into the current branch
 
-    Looking around (read-only)
-      /monitor           Status + overlap across all lanes
-      /lane <name>       Inspect one lane in detail
-      /log-lanes         Commit history for every lane
+Slash commands (run inside a Claude Code lane)
 
-    Wrapping up
-      /integrate-next    Recommend the safest lane to merge next
-      /merge-lane <name> Actually merge a lane into the current branch
+  /checkpoint <msg>        Commit current changes with your message
+  /wrap                    Auto-write a 1-2 sentence message and commit
+  /handoff                 Update .claude-lane-status.md handoff notes
 
 LANE NAMES
 
@@ -90,14 +71,14 @@ LANE NAMES
   The git branch is "worktree-<name>" (Claude Code's convention) — tooling
   resolves either form, so you almost never type the branch name.
 
-WHEN TO USE WHAT
+INTEGRATION MODE
 
-  Starting fresh         lanes start feat-foo
-  Mid-work save          /checkpoint "added validation"   (you write the msg)
-  Mid-work, lazy         /wrap                            (Claude writes the msg)
-  "What's everyone up to" /monitor   or   lanes monitor
-  "Am I done?"           /handoff   then   /integrate-next
-  Bring a lane home      /merge-lane feat-foo   or   lanes merge feat-foo
+  lanes merge picks the mode automatically based on how many *unintegrated*
+  commits the lane has (patch-id aware, so re-integrating a lane after more
+  work counts only the new commits):
+
+    1-2 new commits  -> cherry-pick (linear history, no merge commit)
+    3+  new commits  -> git merge --ff (merge commit only if target moved)
 
 Nothing here pushes to GitHub or deletes worktrees.
 EOF
