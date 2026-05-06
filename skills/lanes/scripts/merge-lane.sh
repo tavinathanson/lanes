@@ -87,13 +87,32 @@ echo
 #                      $CURRENT has moved since the lane forked)
 #   >=3 new commits -> merge --ff (fast-forwards when possible; falls back to
 #                      a single merge commit if $CURRENT has moved)
-if [ "$NEW_COUNT" -le 2 ]; then
-  echo "Mode: cherry-pick ($NEW_COUNT commit(s))"
-  # shellcheck disable=SC2086
-  printf '%s\n' "$NEW_SHAS" | xargs git cherry-pick
+# Serialize concurrent `lanes merge` invocations against the same repo so they
+# don't race for `.git/index.lock`. Linked worktrees have their own index, but
+# multiple operations on the main checkout (e.g. two Claude sessions) share it.
+GIT_COMMON_DIR="$(git rev-parse --git-common-dir)"
+LOCK_FILE="$GIT_COMMON_DIR/lanes-merge.lock"
+
+run_merge() {
+  if [ "$NEW_COUNT" -le 2 ]; then
+    echo "Mode: cherry-pick ($NEW_COUNT commit(s))"
+    # shellcheck disable=SC2086
+    printf '%s\n' "$NEW_SHAS" | xargs git cherry-pick
+  else
+    echo "Mode: merge --ff ($NEW_COUNT commit(s))"
+    git merge --ff "$LANE"
+  fi
+}
+
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    echo "Another lanes merge is in progress (waiting for lock: $LOCK_FILE)..."
+    flock 9
+  fi
+  run_merge
 else
-  echo "Mode: merge --ff ($NEW_COUNT commit(s))"
-  git merge --ff "$LANE"
+  run_merge
 fi
 
 echo

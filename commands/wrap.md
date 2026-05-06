@@ -12,10 +12,10 @@ Steps:
 1. Run `git status --short` and `git diff --stat` to see the scope.
 2. If there are no changes, say so and stop.
 3. Run `git diff` (and `git diff --cached` if anything is staged) to read the actual changes. For huge diffs, sample the most informative hunks.
-4. Draft a 1-2 sentence commit message:
-   - One line, max two short sentences. No bullet-list body.
-   - Focus on the WHY or the user-visible effect, not a file list.
-   - Imperative mood ("add X", "fix Y").
+4. Draft a short, plain commit message:
+   - Default to ONE sentence. Use two only when one genuinely isn't enough. Reserve three sentences for massive multi-part features.
+   - Focus on the problem solved, the feature delivered, or the user-visible effect — not the implementation mechanism, lock primitives, internal file paths, or a file list.
+   - Plain, non-technical phrasing where possible. Imperative mood ("add X", "fix Y"). No bullet-list body.
    - Do NOT prefix with `lane(...)`. Do NOT add `Co-Authored-By`.
 5. Show the proposed message to the user and ask them to confirm or edit it.
 6. Once confirmed, call:
