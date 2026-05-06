@@ -56,6 +56,44 @@ case "$cmd" in
     fi
     exec "$SKILL/merge-lane.sh" "$@"
     ;;
+  union)
+    if [ $# -eq 0 ]; then
+      cat <<'EOF'
+usage: lanes union <path> [<path>...]
+
+Marks paths with git's 'union' merge driver in this repo's
+.git/info/attributes (local to your clone, not committed). Append-only
+logs (UX_LOG.md, CHANGELOG.md, etc.) auto-concatenate on merge instead
+of producing conflicts.
+
+Example:
+  lanes union UX_LOG.md
+  lanes union UX_LOG.md CHANGELOG.md docs/RELEASES.md
+
+To share with the team, commit `<path> merge=union` to .gitattributes
+instead of running this command.
+EOF
+      exit 1
+    fi
+    git_dir="$(git rev-parse --git-common-dir 2>/dev/null)" || {
+      echo "Not in a git repository."
+      exit 1
+    }
+    attrs="$git_dir/info/attributes"
+    mkdir -p "$git_dir/info"
+    touch "$attrs"
+    for path in "$@"; do
+      line="$path merge=union"
+      if grep -Fxq "$line" "$attrs"; then
+        echo "already set: $line"
+      else
+        printf '%s\n' "$line" >> "$attrs"
+        echo "added: $line"
+      fi
+    done
+    echo
+    echo "Wrote to $attrs (local to this clone, not committed)."
+    ;;
   help|-h|--help|"")
     cat <<'EOF'
 lanes — Claude Code multi-worktree dispatcher
@@ -76,6 +114,11 @@ CLI (run from your main worktree shell)
     lanes merge <lane>     Integrate that lane into the current branch
     lanes next             Integrate the safest lane automatically
     lanes merge next       Same as 'lanes next'
+
+  Conflict-free append-only files
+    lanes union <path>...  Mark paths with git's 'union' merge driver in this
+                           repo's .git/info/attributes (local, not committed).
+                           Useful for UX_LOG.md, CHANGELOG.md, etc.
 
 Slash commands (run inside a Claude Code lane)
 

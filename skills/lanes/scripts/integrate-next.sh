@@ -56,7 +56,7 @@ case "$MODE" in
     done
     echo
     echo "Run: lanes merge <lane>"
-    echo "Or:  lanes next        # show the recommended one"
+    echo "Or:  lanes next        # auto-merge the safest one"
     ;;
   pick)
     if [ -z "$sorted" ]; then

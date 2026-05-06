@@ -69,6 +69,18 @@ lanes start feat-auth         # launches Claude Code in worktree "feat-auth"
 
 It refuses if your working tree is dirty. It does not push, squash, or delete the lane.
 
+### Append-only files (UX_LOG.md, CHANGELOG.md, etc.)
+
+Files where every lane appends entries collide constantly. Mark them with git's built-in `union` merge driver and both sides auto-concatenate:
+
+```
+lanes union UX_LOG.md CHANGELOG.md
+```
+
+This writes to the repo's `.git/info/attributes` — **per-repo, local to your clone, not committed**. Run it once per repo where you want it. To share across the team, put `UX_LOG.md merge=union` in a committed `.gitattributes` instead.
+
+Tradeoff: the merged order interleaves both sides around the common ancestor and can produce duplicate lines if both lanes added the exact same text. Fine for timestamped logs; less ideal if order is load-bearing.
+
 ## When-to-use cheat sheet
 
 - **Just want to save state?** `/wrap` (lazy) or `/checkpoint <msg>` (you write it).
