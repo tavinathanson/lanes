@@ -40,6 +40,30 @@ case "$cmd" in
     echo
     exec "$SKILL/merge-lane.sh" "$next_lane"
     ;;
+  diff)
+    if [ $# -eq 0 ]; then
+      echo "usage: lanes diff [--stat] <lane>"
+      echo "       lanes diff [--stat] next"
+      exit 1
+    fi
+    # Find the lane arg (first non-flag) so 'next' can be expanded.
+    args=()
+    lane_arg=""
+    for a in "$@"; do
+      case "$a" in
+        -*) args+=("$a") ;;
+        *)  if [ -z "$lane_arg" ]; then lane_arg="$a"; else args+=("$a"); fi ;;
+      esac
+    done
+    if [ "$lane_arg" = "next" ]; then
+      lane_arg="$("$SKILL/integrate-next.sh" name)"
+      if [ -z "$lane_arg" ]; then
+        echo "No lanes have unintegrated commits. Nothing to diff."
+        exit 0
+      fi
+    fi
+    exec "$SKILL/diff-lane.sh" "${args[@]}" "$lane_arg"
+    ;;
   merge)
     if [ $# -eq 0 ]; then
       exec "$SKILL/integrate-next.sh" list
@@ -108,6 +132,9 @@ CLI (run from your main worktree shell)
     lanes log              Commit history for every lane
     lanes list             List worktrees and lane branches
     lanes inspect <lane>   Detail view of a single lane
+    lanes diff <lane>      Show full diff a lane would land (merge-base...lane)
+    lanes diff --stat <lane>  Same, summarized by file
+    lanes diff next        Diff the safest lane (or 'lanes diff --stat next')
 
   Integrate
     lanes merge            Show lanes with commits to integrate (safest first)
