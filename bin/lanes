@@ -80,6 +80,13 @@ case "$cmd" in
     fi
     exec "$SKILL/merge-lane.sh" "$@"
     ;;
+  drop)
+    if [ $# -eq 0 ]; then
+      echo "usage: lanes drop <lane> [--force]"
+      exit 1
+    fi
+    exec "$SKILL/drop-lane.sh" "$@"
+    ;;
   union)
     if [ $# -eq 0 ]; then
       cat <<'EOF'
@@ -141,6 +148,9 @@ CLI (run from your main worktree shell)
     lanes merge <lane>     Integrate that lane into the current branch
     lanes next             Integrate the safest lane automatically
     lanes merge next       Same as 'lanes next'
+    lanes drop <lane>      Retire a finished lane: remove its worktree and
+                           delete its branch (refuses if it has unintegrated
+                           work or a dirty tree; --force overrides)
 
   Conflict-free append-only files
     lanes union <path>...  Mark paths with git's 'union' merge driver in this
@@ -168,7 +178,12 @@ INTEGRATION MODE
     1-2 new commits  -> cherry-pick (linear history, no merge commit)
     3+  new commits  -> git merge --ff (merge commit only if target moved)
 
-Nothing here pushes to GitHub or deletes worktrees.
+  A lane stops showing up to integrate once its content is on the current
+  branch, even if a past conflict resolution changed a commit's patch-id: the
+  listing runs a real 3-way merge and hides any lane that would not change the
+  current branch. Use 'lanes drop <lane>' to also remove its worktree.
+
+Nothing here pushes to GitHub. Only 'lanes drop' deletes a worktree/branch.
 EOF
     ;;
   *)

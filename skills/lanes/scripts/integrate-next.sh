@@ -7,8 +7,12 @@
 #   name            — print just the top recommendation's lane name (for scripts).
 #
 # "Safest" heuristic: fewest *unintegrated* commits (patch-id aware), tiebreak
-# by lane name. A lane with 0 unintegrated commits is skipped.
+# by lane name. A lane with 0 unintegrated commits is skipped, as is a lane that
+# a real 3-way merge shows would not change $CURRENT at all (fully superseded).
 set -euo pipefail
+
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
 
 MODE="${1:-list}"
 ROOT="$(git rev-parse --show-toplevel)"
@@ -27,6 +31,11 @@ while IFS='|' read -r path branch; do
                  "$CURRENT...$branch" 2>/dev/null | grep -c . || true)"
   [ -z "$new_count" ] && new_count=0
   [ "$new_count" -eq 0 ] && continue
+
+  # Drop lanes that a real merge shows contribute nothing (content already on
+  # $CURRENT, but patch-id changed by a past conflict resolution). Conservative:
+  # only hides clean merges whose result equals $CURRENT.
+  lane_adds_nothing "$CURRENT" "$branch" && continue
 
   behind="$(git rev-list --count "$branch..$CURRENT" 2>/dev/null || echo 0)"
   rows="$rows$new_count	$behind	$short	$branch

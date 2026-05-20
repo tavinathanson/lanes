@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+
 LANE="${1:-}"
 
 if [ -z "$LANE" ]; then
@@ -23,28 +26,6 @@ if [ -n "$(git status --short --untracked-files=no)" ]; then
   git status --short --untracked-files=no
   exit 1
 fi
-
-resolve_lane() {
-  local name="$1"
-  if git rev-parse --verify --quiet "refs/heads/$name" >/dev/null; then
-    echo "$name"; return 0
-  fi
-  if git rev-parse --verify --quiet "refs/heads/worktree-$name" >/dev/null; then
-    echo "worktree-$name"; return 0
-  fi
-  local match
-  match="$(git worktree list --porcelain | awk -v n="$name" '
-    /^worktree / { p=$2; b="" }
-    /^branch /   { b=$2; sub("refs/heads/", "", b)
-                   nb=p; sub(".*/","",nb)
-                   if (nb==n || b==n) print b
-                 }
-  ' | head -n1)"
-  if [ -n "$match" ]; then
-    echo "$match"; return 0
-  fi
-  return 1
-}
 
 RESOLVED="$(resolve_lane "$LANE" || true)"
 if [ -z "$RESOLVED" ]; then
@@ -75,6 +56,17 @@ echo
 
 if [ "$NEW_COUNT" = "0" ]; then
   echo "Nothing to integrate: every commit on $LANE is already present on $CURRENT (by SHA or by patch)."
+  exit 0
+fi
+
+# Even with unintegrated commits by patch-id, the lane may add nothing once a
+# real 3-way merge is considered (e.g. a commit whose patch-id changed during a
+# past conflict resolution, so its content already landed under a different
+# SHA). If merging would not change $CURRENT at all, there is nothing to do.
+if lane_adds_nothing "$CURRENT" "$LANE"; then
+  echo "Nothing to integrate: merging $LANE would not change $CURRENT."
+  echo "(Its commits are flagged by patch-id, but their content is already present."
+  echo " Retire the lane with 'lanes drop $LANE' when you're done with it.)"
   exit 0
 fi
 
