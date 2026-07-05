@@ -7,7 +7,7 @@ BIN="$HOME/.local/bin"
 SKILL_DIR="$HOME/.claude/skills"
 CMD_DIR="$HOME/.claude/commands"
 
-CMDS=(checkpoint handoff wrap lane-escape)
+CMDS=(checkpoint handoff wrap yolo lane-escape push pull sync)
 
 uninstall() {
   rm -f "$BIN/lanes"
