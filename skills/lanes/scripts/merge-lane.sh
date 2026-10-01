@@ -21,12 +21,6 @@ if [ "$CURRENT" = "$LANE" ]; then
   exit 1
 fi
 
-if [ -n "$(git status --short --untracked-files=no)" ]; then
-  echo "Working tree has tracked modifications on $CURRENT. Commit or stash before merging."
-  git status --short --untracked-files=no
-  exit 1
-fi
-
 RESOLVED="$(resolve_lane "$LANE" || true)"
 if [ -z "$RESOLVED" ]; then
   echo "Branch not found for lane: $LANE"
@@ -73,6 +67,37 @@ fi
 echo "Commits to land:"
 printf '%s\n' "$NEW_SHAS" | xargs -r -n1 git --no-pager log --oneline -1
 echo
+
+# A busy working tree is fine when nothing is staged, the integration is
+# conflict-free, and it touches none of the dirty or untracked paths: git then
+# carries the local changes through untouched. Anything else refuses before
+# git can mix a conflict into someone's work in progress.
+check_busy_tree() {
+  local dirty touched overlap
+  dirty="$( { git diff --name-only HEAD; git ls-files --others --exclude-standard; } | sort -u)"
+  [ -z "$dirty" ] && return 0
+  if [ -n "$(git diff --cached --name-only)" ]; then
+    echo "Staged changes on $CURRENT. Commit or unstage them before merging."
+    git diff --cached --name-only | sed 's/^/  /'
+    return 1
+  fi
+  if ! git merge-tree --write-tree --name-only "$CURRENT" "$LANE" >/dev/null 2>&1; then
+    echo "$LANE conflicts with $CURRENT, and $CURRENT has uncommitted changes."
+    echo "Commit or stash them first so the conflict lands on a clean tree."
+    return 1
+  fi
+  touched="$(printf '%s\n' "$NEW_SHAS" | xargs -r -n1 git diff-tree --no-commit-id --name-only -r | sort -u)"
+  overlap="$(comm -12 <(printf '%s\n' "$dirty") <(printf '%s\n' "$touched"))"
+  if [ -n "$overlap" ]; then
+    echo "$LANE changes files that are dirty or untracked on $CURRENT:"
+    printf '%s\n' "$overlap" | sed 's/^/  /'
+    echo "Commit or stash those first."
+    return 1
+  fi
+  echo "Working tree is busy, but $LANE touches none of its changed files; they stay as they are."
+  echo
+}
+check_busy_tree || exit 1
 
 # Threshold:
 #   <=2 new commits -> cherry-pick (linear history, no merge commit, even when

@@ -67,7 +67,7 @@ lanes start feat-auth         # launches Claude Code in worktree "feat-auth"
 - **1-2 new commits** → cherry-pick (linear history, no merge commit even when target moved).
 - **3+ new commits** → `git merge --ff` (fast-forward when possible; one merge commit only if the target moved since the lane forked).
 
-It refuses if your working tree is dirty. It does not push, squash, or delete the lane.
+A dirty working tree is fine as long as nothing is staged, the integration is conflict-free, and the lane touches none of your changed or untracked files; otherwise it refuses and lists the overlap. It does not push, squash, or delete the lane.
 
 ### Append-only files (UX_LOG.md, CHANGELOG.md, etc.)
 
