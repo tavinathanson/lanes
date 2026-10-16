@@ -115,6 +115,13 @@ case "$cmd" in
     fi
     exec "$SKILL/drop-lane.sh" "$@"
     ;;
+  archive)
+    exec "$SKILL/archive-lane.sh" "$@"
+    ;;
+  unarchive)
+    [ $# -eq 0 ] && { echo "usage: lanes unarchive <lane>..."; exit 1; }
+    exec "$SKILL/archive-lane.sh" --undo "$@"
+    ;;
   union)
     if [ $# -eq 0 ]; then
       cat <<'EOF'
@@ -183,6 +190,11 @@ CLI (run from your main worktree shell)
     lanes drop <lane>      Retire a finished lane: remove its worktree and
                            delete its branch (refuses if it has unintegrated
                            work or a dirty tree; --force overrides)
+    lanes archive <lane>...  Hide lanes from merge/next/next-all, keeping the
+                           worktree and branch (a local git config flag)
+    lanes archive --older <days>  Archive every lane idle longer than <days>
+    lanes archive          List archived lanes
+    lanes unarchive <lane>...  Show them again
 
   Conflict-free append-only files
     lanes union <path>...  Mark paths with git's 'union' merge driver in this
@@ -222,7 +234,8 @@ INTEGRATION MODE
   listing runs a real 3-way merge and hides any lane that would not change the
   current branch. Use 'lanes drop <lane>' to also remove its worktree.
 
-Nothing here pushes to GitHub. Only 'lanes drop' deletes a worktree/branch.
+Nothing here pushes to GitHub. Only 'lanes drop' deletes a worktree/branch;
+'lanes archive' only hides one.
 EOF
     ;;
   *)

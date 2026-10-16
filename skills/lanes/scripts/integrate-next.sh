@@ -15,6 +15,7 @@
 #   2. lanes that merge cleanly before lanes that would conflict
 #   3. fewest lines changed (merge-base...lane)
 #   4. lane name
+# Lanes marked with 'lanes archive' are never scanned.
 # A lane with 0 unintegrated commits (patch-id aware) is skipped, as is a lane
 # that a real 3-way merge shows would not change $CURRENT at all. Either result
 # is cached by lane tip, so the next scan skips that lane without checking.
@@ -78,9 +79,13 @@ progress() {
   return 0
 }
 
-branches="$(git worktree list --porcelain | awk -v cur="refs/heads/$CURRENT" '
-  /^branch / && $2 != cur { b=$2; sub("refs/heads/", "", b); print b }
+# Every worktree branch but the current one, minus lanes hidden by 'lanes archive'.
+archived="$(archived_branches)"
+branches="$(git worktree list --porcelain | awk -v cur="refs/heads/$CURRENT" -v archived="$archived" '
+  BEGIN { n = split(archived, a, "\n"); for (i = 1; i <= n; i++) skip[a[i]] = 1 }
+  /^branch / && $2 != cur { b=$2; sub("refs/heads/", "", b); if (!(b in skip)) print b }
 ')"
+archived_count="$(printf '%s\n' "$archived" | grep -c . || true)"
 jobs="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 rows="$(printf '%s\n' "$branches" | grep . \
   | xargs -r -P "$jobs" -n1 bash -c 'analyze_lane "$1"' _ \
@@ -108,11 +113,17 @@ case "$MODE" in
     if [ -z "$sorted" ]; then
       echo "  (none)"
       echo
-      echo "Run a lane to completion, then 'lanes merge <lane>'."
-      exit 0
     fi
     print_section "Today:" 0
     print_section "Older:" 1
+    if [ "$archived_count" -gt 0 ]; then
+      echo "($archived_count archived lane(s) hidden; 'lanes archive' lists them.)"
+      echo
+    fi
+    if [ -z "$sorted" ]; then
+      echo "Run a lane to completion, then 'lanes merge <lane>'."
+      exit 0
+    fi
     echo "Run: lanes merge <lane>"
     echo "Or:  lanes next        # auto-merge the top one"
     echo "Or:  lanes next-all    # auto-merge every lane from the last 24 hours"

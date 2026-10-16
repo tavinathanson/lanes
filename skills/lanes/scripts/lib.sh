@@ -84,3 +84,11 @@ lane_is_today() {
 lane_age() {
   git log -1 --format=%cr "$1"
 }
+
+# archived_branches: echo every branch marked with 'lanes archive', one per line.
+# The flag lives in local git config (branch.<name>.lanesArchived), so the
+# worktree and branch stay untouched.
+archived_branches() {
+  { git config --get-regexp '^branch\..*\.lanesarchived$' 2>/dev/null || true; } \
+    | awk '$2 == "true" { k=$1; sub(/^branch\./, "", k); sub(/\.lanesarchived$/, "", k); print k }'
+}
