@@ -16,7 +16,7 @@ merge_next() {
   exec "$SKILL/merge-lane.sh" "$lane"
 }
 
-cmd="${1:-help}"
+cmd="${1:-merge}"
 shift || true
 
 case "$cmd" in
@@ -167,7 +167,7 @@ EOF
     echo
     echo "Wrote to $attrs (local to this clone, not committed)."
     ;;
-  help|-h|--help|"")
+  help|-h|--help)
     cat <<'EOF'
 lanes — Claude Code multi-worktree dispatcher
 
@@ -190,6 +190,7 @@ CLI (run from your main worktree shell)
 
   Integrate
     lanes merge            Show lanes with commits to integrate (safest first)
+    lanes                  Same as 'lanes merge'
     lanes merge <lane>     Integrate that lane into the current branch
     lanes next             Integrate the safest lane automatically
     lanes merge next       Same as 'lanes next'
