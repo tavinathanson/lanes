@@ -16,7 +16,8 @@
 #   3. fewest lines changed (merge-base...lane)
 #   4. lane name
 # A lane with 0 unintegrated commits (patch-id aware) is skipped, as is a lane
-# that a real 3-way merge shows would not change $CURRENT at all.
+# that a real 3-way merge shows would not change $CURRENT at all. Either result
+# is cached by lane tip, so the next scan skips that lane without checking.
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -33,16 +34,21 @@ CURRENT="$(git branch --show-current)"
 # (tab-separated): older conflict lines short new behind merge epoch age islane
 # (islane is 1 for a Claude Code worktree under .claude/worktrees/).
 analyze_lane() {
-  local branch="$1" new_count merge older conflict lines behind islane
+  local branch="$1" tip new_count merge older conflict lines behind islane
+  # A tip already found fully on $CURRENT stays that way, so skip it for good.
+  tip="$(git rev-parse --verify --quiet "$branch")"
+  if [ -e "$INTEGRATED_DIR/$tip" ]; then
+    echo; return 0
+  fi
   # Cheap check first: a lane with no commits past $CURRENT needs no patch-ids.
   if [ "$(git rev-list --count "$CURRENT..$branch" 2>/dev/null || echo 0)" -eq 0 ]; then
-    echo; return 0
+    touch "$INTEGRATED_DIR/$tip"; echo; return 0
   fi
   # Patch-id-aware count: matches what merge-lane.sh will see.
   new_count="$(unintegrated_shas "$CURRENT" "$branch" | grep -c . || true)"
   merge="$(merge_outcome "$CURRENT" "$branch")"
   if [ "${new_count:-0}" -eq 0 ] || [ "$merge" = nothing ]; then
-    echo; return 0
+    touch "$INTEGRATED_DIR/$tip"; echo; return 0
   fi
   older=1; lane_is_today "$branch" && older=0
   conflict=0; [ "$merge" = conflict ] && conflict=1
@@ -53,7 +59,11 @@ analyze_lane() {
     "$new_count" "$behind" "$merge" "$(git log -1 --format=%ct "$branch")" "$(lane_age "$branch")" "$islane"
 }
 export -f analyze_lane unintegrated_shas merge_outcome lane_is_today lane_age lane_dir
-export CURRENT
+# Cache of lane tips known to be fully integrated into $CURRENT, one empty
+# file per commit hash, so later scans skip long-merged lanes instantly.
+INTEGRATED_DIR="$(git rev-parse --path-format=absolute --git-common-dir)/lanes-integrated/$CURRENT"
+mkdir -p "$INTEGRATED_DIR"
+export CURRENT INTEGRATED_DIR
 
 # progress <total>: pass rows through, dropping blanks, and keep a live
 # "Checking lanes n/total" counter on stderr when it is a terminal.
