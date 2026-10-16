@@ -63,6 +63,7 @@ A timestamp lane gets a readable branch name on its first `/wrap`, `/yolo` or `/
 | --- | --- |
 | See lanes with commits to integrate | `lanes merge` |
 | Integrate the safest lane automatically | `lanes next` (or `lanes merge next`) |
+| Integrate every lane from the last 24 hours, stopping at a conflict | `lanes next-all` (or `lanes next-all 6` for 6 hours) |
 | Integrate a specific lane | `lanes merge feat-auth` |
 
 `lanes merge` picks the integration mode automatically based on how many *unintegrated* commits the lane has (patch-id aware, so re-integrating a lane after more work counts only the new commits):

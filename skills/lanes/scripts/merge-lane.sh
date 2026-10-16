@@ -4,10 +4,19 @@ set -euo pipefail
 # shellcheck source=lib.sh
 . "$(dirname "$0")/lib.sh"
 
-LANE="${1:-}"
+# --yes skips the old-lane prompt (used by 'lanes next-all', where the time
+# window was already chosen).
+YES=0
+LANE=""
+for a in "$@"; do
+  case "$a" in
+    --yes) YES=1 ;;
+    *) LANE="$a" ;;
+  esac
+done
 
 if [ -z "$LANE" ]; then
-  echo "usage: merge-lane.sh <lane-name>"
+  echo "usage: merge-lane.sh [--yes] <lane-name>"
   exit 1
 fi
 
@@ -33,10 +42,9 @@ LANE="$RESOLVED"
 RAW_AHEAD="$(git rev-list --count "$CURRENT..$LANE" 2>/dev/null || echo 0)"
 BEHIND="$(git rev-list --count "$LANE..$CURRENT" 2>/dev/null || echo 0)"
 
-# Patch-id-aware list of commits on $LANE not yet present on $CURRENT.
-# Survives prior cherry-picks: a commit whose patch is already applied
-# (with a different SHA) is filtered out.
-NEW_SHAS="$(git rev-list --cherry-pick --right-only --no-merges --reverse "$CURRENT...$LANE" 2>/dev/null || true)"
+# Commits on $LANE not yet present on $CURRENT. Survives prior cherry-picks,
+# including ones that needed a conflict resolution (see lib.sh).
+NEW_SHAS="$(unintegrated_shas "$CURRENT" "$LANE")"
 if [ -z "$NEW_SHAS" ]; then
   NEW_COUNT=0
 else
@@ -72,7 +80,7 @@ echo
 # when someone is at the terminal, ask before going on.
 if ! lane_is_today "$LANE"; then
   echo "Heads up: ${LANE#worktree-} is an old lane; its last commit was $(lane_age "$LANE")."
-  if [ -t 0 ]; then
+  if [ "$YES" = 0 ] && [ -t 0 ]; then
     read -r -p "Merge it anyway? [y/N] " answer
     case "$answer" in
       [yY]*) ;;

@@ -35,6 +35,16 @@ lane_dir() {
   '
 }
 
+# unintegrated_shas <current> <lane>: echo, oldest first, the lane commits not
+# yet on <current>. Patch-id aware (--cherry-pick), and also drops a commit
+# that was cherry-picked with a conflict resolution: that changes its patch-id
+# but keeps its author timestamp and subject, which must already be on <current>.
+unintegrated_shas() {
+  git log --cherry-pick --right-only --no-merges --reverse --format='%H%x09%at %s' "$1...$2" 2>/dev/null \
+    | awk -F '\t' 'NR == FNR { landed[$0] = 1; next } !($2 in landed) { print $1 }' \
+        <(git log --no-merges --format='%at %s' "$2..$1" 2>/dev/null) -
+}
+
 # merge_outcome <current> <lane>: echo what a real 3-way merge of <lane> into
 # <current> would do, without touching the working tree:
 #   nothing   clean, and the result is byte-identical to <current> (a fully

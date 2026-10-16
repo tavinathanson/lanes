@@ -4,6 +4,18 @@ set -euo pipefail
 
 SKILL="${LANES_SKILL_DIR:-$HOME/.claude/skills/lanes/scripts}"
 
+# merge_next: pick the safest lane (one ranking scan) and integrate it.
+merge_next() {
+  local lane
+  lane="$("$SKILL/integrate-next.sh" pick)"
+  if [ -z "$lane" ]; then
+    echo "No lanes have unintegrated commits. Nothing to merge."
+    exit 0
+  fi
+  echo
+  exec "$SKILL/merge-lane.sh" "$lane"
+}
+
 cmd="${1:-help}"
 shift || true
 
@@ -38,14 +50,32 @@ case "$cmd" in
     exec "$SKILL/status.sh" main "$lane"
     ;;
   next)
-    next_lane="$("$SKILL/integrate-next.sh" name)"
-    if [ -z "$next_lane" ]; then
-      echo "No lanes have unintegrated commits. Nothing to merge."
+    merge_next
+    ;;
+  next-all)
+    hours="${1:-24}"
+    [[ "$hours" =~ ^[0-9]+$ ]] || { echo "usage: lanes next-all [hours]"; exit 1; }
+    lanes="$("$SKILL/integrate-next.sh" recent "$hours")"
+    if [ -z "$lanes" ]; then
+      echo "No lanes with commits from the last $hours hour(s) to merge."
       exit 0
     fi
-    "$SKILL/integrate-next.sh" pick
+    total="$(printf '%s\n' "$lanes" | grep -c .)"
+    echo "Merging $total lane(s) from the last $hours hour(s), safest first:" $lanes
+    i=0
+    for lane in $lanes; do
+      i=$((i + 1))
+      echo
+      echo "==> [$i/$total] $lane"
+      if ! "$SKILL/merge-lane.sh" --yes "$lane"; then
+        echo
+        echo "Stopped at $lane ($i/$total). Resolve it (see 'git status'), finish the"
+        echo "cherry-pick or merge, then rerun 'lanes next-all' for the rest."
+        exit 1
+      fi
+    done
     echo
-    exec "$SKILL/merge-lane.sh" "$next_lane"
+    echo "Merged $total lane(s). Nothing has been pushed; run your tests."
     ;;
   diff)
     if [ $# -eq 0 ]; then
@@ -63,7 +93,7 @@ case "$cmd" in
       esac
     done
     if [ "$lane_arg" = "next" ]; then
-      lane_arg="$("$SKILL/integrate-next.sh" name)"
+      lane_arg="$("$SKILL/integrate-next.sh" pick)"
       if [ -z "$lane_arg" ]; then
         echo "No lanes have unintegrated commits. Nothing to diff."
         exit 0
@@ -75,16 +105,7 @@ case "$cmd" in
     if [ $# -eq 0 ]; then
       exec "$SKILL/integrate-next.sh" list
     fi
-    if [ "${1:-}" = "next" ]; then
-      next_lane="$("$SKILL/integrate-next.sh" name)"
-      if [ -z "$next_lane" ]; then
-        echo "No lanes have unintegrated commits. Nothing to merge."
-        exit 0
-      fi
-      "$SKILL/integrate-next.sh" pick
-      echo
-      exec "$SKILL/merge-lane.sh" "$next_lane"
-    fi
+    [ "${1:-}" = "next" ] && merge_next
     exec "$SKILL/merge-lane.sh" "$@"
     ;;
   drop)
@@ -156,6 +177,9 @@ CLI (run from your main worktree shell)
     lanes merge <lane>     Integrate that lane into the current branch
     lanes next             Integrate the safest lane automatically
     lanes merge next       Same as 'lanes next'
+    lanes next-all [hours] Integrate every lane committed in the last <hours>
+                           (default 24), safest first, one at a time; stops
+                           at the first conflict. Rerun it after resolving.
     lanes drop <lane>      Retire a finished lane: remove its worktree and
                            delete its branch (refuses if it has unintegrated
                            work or a dirty tree; --force overrides)
