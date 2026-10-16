@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# offer-commit.sh <worktree>: run by 'lanes start' after Claude exits. When the
-# lane has uncommitted work, offer to commit it right there, with a message
-# Claude writes from the diff (like /yolo) or one you type.
+# offer-commit.sh <worktree>: run by 'lanes start' and 'lanes open' after Claude
+# exits. When the lane has uncommitted work, offer to commit it right there,
+# with a message Claude writes from the diff (like /yolo) or one you type.
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -16,7 +16,7 @@ summary="$(dirty_summary "$WT")"
 echo
 echo "Lane $LANE has uncommitted work ($summary)."
 if [ ! -t 0 ]; then
-  echo "  Resume with 'lanes start $LANE' and run /wrap, or 'lanes dirty' for all lanes."
+  echo "  Resume with 'lanes open $LANE' and run /wrap, or 'lanes dirty' for all lanes."
   exit 0
 fi
 read -r -p "Commit it? [Y] auto message, [m] type one, [n] leave it: " answer

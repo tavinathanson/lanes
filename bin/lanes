@@ -16,6 +16,16 @@ merge_next() {
   exec "$SKILL/merge-lane.sh" "$lane"
 }
 
+# run_claude <worktree> <claude args...>: run Claude, then offer to commit any
+# work it left uncommitted in <worktree>, and exit with Claude's status.
+run_claude() {
+  local wt="$1" rc=0
+  shift
+  claude "$@" || rc=$?
+  "$SKILL/offer-commit.sh" "$wt" || true
+  exit "$rc"
+}
+
 cmd="${1:-merge}"
 shift || true
 
@@ -31,11 +41,21 @@ case "$cmd" in
       dir="$(lane_dir "$(resolve_lane "$lane" || true)")"
       [[ "$dir" == */.claude/worktrees/* ]] && lane="$(basename "$dir")"
     fi
-    # Run (not exec) so we can offer to commit leftover work when Claude exits.
-    rc=0
-    claude --worktree "$lane" "$@" || rc=$?
-    "$SKILL/offer-commit.sh" "$(git rev-parse --show-toplevel)/.claude/worktrees/$lane" || true
-    exit "$rc"
+    run_claude "$(git rev-parse --show-toplevel)/.claude/worktrees/$lane" --worktree "$lane" "$@"
+    ;;
+  open)
+    # Existing lanes only; resume the lane's last conversation when it has one.
+    lane=""
+    if [ -n "${1:-}" ] && [[ "$1" != -* ]]; then lane="$1"; shift; fi
+    dir="$("$SKILL/open-lane.sh" "$lane")" || exit 1
+    . "$SKILL/lib.sh"
+    cd "$dir"
+    if has_claude_session "$dir"; then
+      run_claude "$dir" --continue "$@"
+    else
+      echo "No earlier conversation in $(basename "$dir"); starting a new one."
+      run_claude "$dir" "$@"
+    fi
     ;;
   dirty)
     exec "$SKILL/dirty.sh"
@@ -187,6 +207,10 @@ CLI (run from your main worktree shell)
     lanes start <lane>     Launch Claude Code in a worktree (creates if needed)
     lanes start            Same, with a timestamp name like lane-20261016-143005
                            On exit, offers to commit any uncommitted work
+    lanes open <lane>      Reopen an existing lane and resume its last
+                           conversation (never creates a lane; suggests close
+                           names on a typo). Also offers to commit on exit
+    lanes open             Pick a lane from a list, most recent first
 
   Look around
     lanes monitor          Status + overlap across all lanes

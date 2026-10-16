@@ -141,3 +141,11 @@ warn_if_dirty() {
   echo "  count here; run /wrap in that lane so it isn't left behind."
   echo
 }
+
+# has_claude_session <worktree path>: return 0 when Claude Code has a saved
+# conversation for that directory, so 'claude --continue' has one to resume.
+has_claude_session() {
+  local d
+  d="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/projects/$(printf '%s' "$1" | sed 's/[^a-zA-Z0-9]/-/g')"
+  compgen -G "$d/*.jsonl" >/dev/null
+}
