@@ -6,6 +6,9 @@
 # since the lane forked.
 set -euo pipefail
 
+# shellcheck source=lib.sh
+. "$(dirname "$0")/lib.sh"
+
 STAT=0
 LANE=""
 while [ $# -gt 0 ]; do
@@ -30,28 +33,6 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 CURRENT="$(git branch --show-current)"
-
-resolve_lane() {
-  local name="$1"
-  if git rev-parse --verify --quiet "refs/heads/$name" >/dev/null; then
-    echo "$name"; return 0
-  fi
-  if git rev-parse --verify --quiet "refs/heads/worktree-$name" >/dev/null; then
-    echo "worktree-$name"; return 0
-  fi
-  local match
-  match="$(git worktree list --porcelain | awk -v n="$name" '
-    /^worktree / { p=$2; b="" }
-    /^branch /   { b=$2; sub("refs/heads/", "", b)
-                   nb=p; sub(".*/","",nb)
-                   if (nb==n || b==n) print b
-                 }
-  ' | head -n1)"
-  if [ -n "$match" ]; then
-    echo "$match"; return 0
-  fi
-  return 1
-}
 
 RESOLVED="$(resolve_lane "$LANE" || true)"
 if [ -z "$RESOLVED" ]; then

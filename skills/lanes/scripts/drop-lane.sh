@@ -40,10 +40,7 @@ if [ "$LANE" = "$CURRENT" ]; then
 fi
 
 # Worktree path for this branch, if any.
-WT_PATH="$(git worktree list --porcelain | awk -v b="refs/heads/$LANE" '
-  /^worktree / { p=$2 }
-  /^branch /   { if ($2==b) print p }
-' | head -n1)"
+WT_PATH="$(lane_dir "$LANE")"
 
 # Guard: does the lane still have real work to integrate into $CURRENT?
 NEW_COUNT="$(git rev-list --cherry-pick --right-only --no-merges \

@@ -18,9 +18,9 @@ resolve_lane() {
     /^worktree / { p=$2; b="" }
     /^branch /   { b=$2; sub("refs/heads/", "", b)
                    nb=p; sub(".*/","",nb)
-                   if (nb==n || b==n) print b
+                   if (!found && (nb==n || b==n)) { print b; found=1 }
                  }
-  ' | head -n1)"
+  ')"
   if [ -n "$match" ]; then
     echo "$match"; return 0
   fi
@@ -28,10 +28,12 @@ resolve_lane() {
 }
 
 # lane_dir <branch>: echo the worktree path checked out on <branch>, if any.
+# Reads git's whole output on purpose: quitting early (awk exit, head) can kill
+# git with SIGPIPE, which pipefail turns into a silent exit under set -e.
 lane_dir() {
   git worktree list --porcelain | awk -v b="refs/heads/$1" '
     /^worktree / { p=substr($0, 10) }
-    $0 == "branch " b { print p; exit }
+    $0 == "branch " b { print p }
   '
 }
 
@@ -72,6 +74,14 @@ merge_outcome() {
 # or an unknown outcome returns 1, so the lane stays shown.
 lane_adds_nothing() {
   [ "$(merge_outcome "$1" "$2")" = nothing ]
+}
+
+# merge_in_progress: return 0 when a merge or cherry-pick stopped partway in
+# this checkout (what 'lanes resolve' picks up).
+merge_in_progress() {
+  local d
+  d="$(git rev-parse --git-dir)"
+  [ -f "$d/CHERRY_PICK_HEAD" ] || [ -f "$d/MERGE_HEAD" ]
 }
 
 # lane_is_today <branch>: return 0 when the branch tip was committed today

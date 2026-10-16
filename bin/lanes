@@ -76,8 +76,15 @@ case "$cmd" in
       echo "==> [$i/$total] $lane"
       if ! "$SKILL/merge-lane.sh" --yes "$lane"; then
         echo
-        echo "Stopped at $lane ($i/$total). Once it's resolved, rerun 'lanes next-all'"
-        echo "for the rest."
+        . "$SKILL/lib.sh"
+        if merge_in_progress; then
+          echo "Stopped at $lane ($i/$total) on a conflict. Once it's resolved, rerun"
+          echo "'lanes next-all' for the rest."
+        else
+          echo "Stopped at $lane ($i/$total) without a conflict: merging it failed"
+          echo "(see the output above) and nothing is in progress, so 'lanes resolve'"
+          echo "has nothing to do. Fix the cause, then rerun 'lanes next-all'."
+        fi
         exit 1
       fi
     done
