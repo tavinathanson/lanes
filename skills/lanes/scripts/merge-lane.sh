@@ -133,14 +133,22 @@ check_busy_tree || exit 1
 GIT_COMMON_DIR="$(git rev-parse --git-common-dir)"
 LOCK_FILE="$GIT_COMMON_DIR/lanes-merge.lock"
 
+# A conflict leaves git mid-operation; point at the way out.
+stopped() {
+  echo
+  echo "Stopped on a conflict. Run 'lanes resolve' to have Claude finish it,"
+  echo "or resolve it by hand (see 'git status')."
+  exit 1
+}
+
 run_merge() {
   if [ "$NEW_COUNT" -le 2 ]; then
     echo "Mode: cherry-pick ($NEW_COUNT commit(s))"
     # shellcheck disable=SC2086
-    printf '%s\n' "$NEW_SHAS" | xargs git cherry-pick
+    printf '%s\n' "$NEW_SHAS" | xargs git cherry-pick || stopped
   else
     echo "Mode: merge --ff ($NEW_COUNT commit(s))"
-    git merge --ff "$LANE"
+    git merge --ff "$LANE" || stopped
   fi
 }
 

@@ -76,13 +76,16 @@ case "$cmd" in
       echo "==> [$i/$total] $lane"
       if ! "$SKILL/merge-lane.sh" --yes "$lane"; then
         echo
-        echo "Stopped at $lane ($i/$total). Resolve it (see 'git status'), finish the"
-        echo "cherry-pick or merge, then rerun 'lanes next-all' for the rest."
+        echo "Stopped at $lane ($i/$total). Once it's resolved, rerun 'lanes next-all'"
+        echo "for the rest."
         exit 1
       fi
     done
     echo
     echo "Merged $total lane(s). Nothing has been pushed; run your tests."
+    ;;
+  resolve|fix)
+    exec "$SKILL/resolve.sh" "$@"
     ;;
   diff)
     if [ $# -eq 0 ]; then
@@ -197,6 +200,9 @@ CLI (run from your main worktree shell)
     lanes next-all [hours] Integrate every lane committed in the last <hours>
                            (default 24), safest first, one at a time; stops
                            at the first conflict. Rerun it after resolving.
+    lanes resolve          After a merge stops on a conflict, open Claude with
+                           the lane, commits, conflicted files and handoff
+                           notes so it can finish the job (alias: lanes fix)
     lanes drop <lane>      Retire a finished lane: remove its worktree and
                            delete its branch (refuses if it has unintegrated
                            work or a dirty tree; --force overrides)
