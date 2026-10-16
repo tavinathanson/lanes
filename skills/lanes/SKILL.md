@@ -24,6 +24,16 @@ A lane may have:
 - commits ahead of main
 - a .claude-lane-status.md handoff file
 
+### No lane: the main checkout
+
+The user often opens Claude directly in the main checkout without `lanes start`. That is a normal, supported mode, not a mistake. Tell which mode you're in with `git rev-parse --git-dir` vs `--git-common-dir`: equal means the main checkout, different means a worktree lane.
+
+In the main checkout, "the current lane" just means the current branch (usually `main`):
+- `/wrap`, `/yolo`, and `/checkpoint` commit straight onto that branch. Run them as usual; don't suggest `/lane-escape` or `lanes start` unless asked.
+- When showing or reporting a commit, name the branch it lands on (e.g. "commits to main") so the user can see which mode they're in.
+- `--name` is still passed; the script ignores it outside a timestamp-named lane.
+- There is nothing to merge afterward: the work is already on the branch.
+
 ## Surfaces
 
 Two ways to drive this skill:
