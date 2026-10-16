@@ -9,9 +9,12 @@ shift || true
 
 case "$cmd" in
   start)
-    lane="${1:-}"
-    [ -z "$lane" ] && { echo "usage: lanes start <lane>"; exit 1; }
-    shift || true
+    # No name (or only claude flags): name the lane after the current time.
+    if [ -z "${1:-}" ] || [[ "$1" == -* ]]; then
+      lane="lane-$(date +%Y%m%d-%H%M%S)"
+    else
+      lane="$1"; shift
+    fi
     exec claude --worktree "$lane" "$@"
     ;;
   monitor)
@@ -133,6 +136,7 @@ CLI (run from your main worktree shell)
 
   Start
     lanes start <lane>     Launch Claude Code in a worktree (creates if needed)
+    lanes start            Same, with a timestamp name like lane-20261016-143005
 
   Look around
     lanes monitor          Status + overlap across all lanes

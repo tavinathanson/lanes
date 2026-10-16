@@ -35,6 +35,7 @@ Tooling accepts either form, so don't worry about it.
 
 ```
 lanes start feat-auth         # launches Claude Code in worktree "feat-auth"
+lanes start                   # same, named after the current time (lane-20261016-143005)
 ```
 
 ### 2. Work inside the lane (slash commands inside Claude)
