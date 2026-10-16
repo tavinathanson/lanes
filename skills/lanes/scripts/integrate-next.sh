@@ -9,6 +9,8 @@
 # "Safest" heuristic: fewest *unintegrated* commits (patch-id aware), tiebreak
 # by lane name. A lane with 0 unintegrated commits is skipped, as is a lane that
 # a real 3-way merge shows would not change $CURRENT at all (fully superseded).
+# The list splits lanes into today's (tip committed today, local time) and
+# older ones, so stale lanes don't crowd out current work.
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -19,6 +21,7 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 CURRENT="$(git branch --show-current)"
+TODAY="$(date +%Y-%m-%d)"
 
 rows=""
 while IFS='|' read -r path branch; do
@@ -38,7 +41,9 @@ while IFS='|' read -r path branch; do
   lane_adds_nothing "$CURRENT" "$branch" && continue
 
   behind="$(git rev-list --count "$branch..$CURRENT" 2>/dev/null || echo 0)"
-  rows="$rows$new_count	$behind	$short	$branch
+  tip_day="$(git log -1 --format=%cd --date=format-local:%Y-%m-%d "$branch")"
+  age="$(git log -1 --format=%cr "$branch")"
+  rows="$rows$new_count	$behind	$short	$branch	$([ "$tip_day" = "$TODAY" ] && echo today || echo older)	$age
 "
 done < <(git worktree list --porcelain | awk '
   /^worktree / { path=$2 }
@@ -47,6 +52,19 @@ done < <(git worktree list --porcelain | awk '
 
 # Sort ascending by new_count, tiebreak by lane name.
 sorted="$(printf '%s' "$rows" | sort -t '	' -k1,1n -k3,3)"
+
+# print_section <heading> <today|older>: print the sorted rows in that bucket.
+print_section() {
+  local section
+  section="$(printf '%s\n' "$sorted" | awk -F '\t' -v b="$2" '$5 == b')"
+  [ -z "$section" ] && return 0
+  echo "  $1"
+  printf "    %-30s %6s %7s  %s\n" "LANE" "NEW" "BEHIND" "LAST COMMIT"
+  printf '%s\n' "$section" | while IFS='	' read -r new behind short _ _ age; do
+    printf "    %-30s %6s %7s  %s\n" "$short" "$new" "$behind" "$age"
+  done
+  echo
+}
 
 case "$MODE" in
   list)
@@ -58,12 +76,8 @@ case "$MODE" in
       echo "Run a lane to completion, then 'lanes merge <lane>'."
       exit 0
     fi
-    printf "  %-30s %6s %7s\n" "LANE" "NEW" "BEHIND"
-    printf '%s\n' "$sorted" | while IFS='	' read -r new behind short branch; do
-      [ -z "$short" ] && continue
-      printf "  %-30s %6s %7s\n" "$short" "$new" "$behind"
-    done
-    echo
+    print_section "Today:" today
+    print_section "Older:" older
     echo "Run: lanes merge <lane>"
     echo "Or:  lanes next        # auto-merge the safest one"
     ;;
