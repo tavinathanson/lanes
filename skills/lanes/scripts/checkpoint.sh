@@ -2,15 +2,19 @@
 set -euo pipefail
 
 ONLY_STAGED=0
-if [ "${1:-}" = "--only-staged" ]; then
-  ONLY_STAGED=1
-  shift
-fi
+NAME=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --only-staged) ONLY_STAGED=1; shift ;;
+    --name) NAME="${2:-}"; shift 2 || shift ;;
+    *) break ;;
+  esac
+done
 
 MSG="${1:-}"
 
 if [ -z "$MSG" ]; then
-  echo "usage: checkpoint.sh [--only-staged] \"commit message\""
+  echo "usage: checkpoint.sh [--only-staged] [--name <slug>] \"commit message\""
   exit 1
 fi
 
@@ -65,5 +69,6 @@ git commit -m "$MSG"
 
 echo
 echo "Checkpoint created on $BRANCH"
+[ -n "$NAME" ] && "$(dirname "$0")/rename-lane.sh" "$NAME" || true
 echo
 git --no-pager log --oneline -5

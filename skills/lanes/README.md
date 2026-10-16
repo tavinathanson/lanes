@@ -38,6 +38,8 @@ lanes start feat-auth         # launches Claude Code in worktree "feat-auth"
 lanes start                   # same, named after the current time (lane-20261016-143005)
 ```
 
+A timestamp lane gets a readable branch name on its first `/wrap`, `/yolo` or `/checkpoint` (e.g. `worktree-start-autoname`), unless it was already pushed. The worktree dir keeps the timestamp; `lanes start start-autoname` reopens it.
+
 ### 2. Work inside the lane (slash commands inside Claude)
 
 | Want to... | Use |

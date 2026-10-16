@@ -21,10 +21,11 @@ Steps:
    - Focus on the problem solved, the feature delivered, or the user-visible effect — not the implementation mechanism, lock primitives, internal file paths, or a file list.
    - Plain, non-technical phrasing where possible. Imperative mood ("add X", "fix Y"). No bullet-list body.
    - Do NOT prefix with `lane(...)`. Do NOT add `Co-Authored-By`.
+   - Also pick a lane slug: 2 to 4 lowercase words joined by hyphens naming the lane's overall work (e.g. `start-autoname`). Pass it as `--name <slug>` on every checkpoint call; the script only uses it to rename a lane that still has its timestamp name from a bare `lanes start`, and ignores it otherwise. If it prints "Lane renamed", tell the user the new name.
 6. Show the proposed message(s) — and the proposed split, if any — to the user and ask them to confirm or edit.
 7. Once confirmed:
-   - Single commit: call `~/.claude/skills/lanes/scripts/checkpoint.sh "<final message>"`.
-   - Split: for each group, run `git reset` to clear the index, `git add <files...>` to stage just that group, then call `~/.claude/skills/lanes/scripts/checkpoint.sh --only-staged "<message>"`. Repeat per group.
+   - Single commit: call `~/.claude/skills/lanes/scripts/checkpoint.sh --name <slug> "<final message>"`.
+   - Split: for each group, run `git reset` to clear the index, `git add <files...>` to stage just that group, then call `~/.claude/skills/lanes/scripts/checkpoint.sh --only-staged --name <slug> "<message>"`. Repeat per group.
 8. Print the resulting `git log --oneline -5`.
 
 Rules:

@@ -27,6 +27,14 @@ resolve_lane() {
   return 1
 }
 
+# lane_dir <branch>: echo the worktree path checked out on <branch>, if any.
+lane_dir() {
+  git worktree list --porcelain | awk -v b="refs/heads/$1" '
+    /^worktree / { p=substr($0, 10) }
+    $0 == "branch " b { print p; exit }
+  '
+}
+
 # merge_outcome <current> <lane>: echo what a real 3-way merge of <lane> into
 # <current> would do, without touching the working tree:
 #   nothing   clean, and the result is byte-identical to <current> (a fully

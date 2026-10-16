@@ -12,7 +12,7 @@ This command is MANUAL-ONLY. It runs only when the user themselves typed `/yolo-
 
 Steps:
 
-1. Do everything `/yolo` does: inspect the diff, draft a short plain commit message (one sentence by default, no `lane(...)` prefix, no `Co-Authored-By`), and commit immediately via `~/.claude/skills/lanes/scripts/checkpoint.sh "<message>"` without asking for confirmation. Follow `/yolo`'s split rules if the diff contains clearly unrelated concerns.
+1. Do everything `/yolo` does: inspect the diff, draft a short plain commit message (one sentence by default, no `lane(...)` prefix, no `Co-Authored-By`), and pick a lane slug as `/yolo` does, and commit immediately via `~/.claude/skills/lanes/scripts/checkpoint.sh --name <slug> "<message>"` without asking for confirmation. Follow `/yolo`'s split rules if the diff contains clearly unrelated concerns.
 2. If there were no changes to commit, still continue to the push step if the branch is ahead of its upstream; otherwise say there is nothing to commit or push and stop.
 3. Do everything `/push` does: determine the current branch (stop if detached), check for an upstream, then `git push -u origin <branch>` on first push or plain `git push` otherwise.
 4. Report the commit message(s), `git log --oneline -5`, and the push result including the compare/PR URL if git prints one.
