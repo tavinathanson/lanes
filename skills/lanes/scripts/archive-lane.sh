@@ -24,6 +24,7 @@ set_flag() {
   else
     git config "branch.$1.lanesArchived" true
     echo "archived: ${1#worktree-} (last commit $(lane_age "$1"))"
+    warn_if_dirty "$1"
   fi
 }
 

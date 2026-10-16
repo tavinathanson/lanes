@@ -31,7 +31,14 @@ case "$cmd" in
       dir="$(lane_dir "$(resolve_lane "$lane" || true)")"
       [[ "$dir" == */.claude/worktrees/* ]] && lane="$(basename "$dir")"
     fi
-    exec claude --worktree "$lane" "$@"
+    # Run (not exec) so we can offer to commit leftover work when Claude exits.
+    rc=0
+    claude --worktree "$lane" "$@" || rc=$?
+    "$SKILL/offer-commit.sh" "$(git rev-parse --show-toplevel)/.claude/worktrees/$lane" || true
+    exit "$rc"
+    ;;
+  dirty)
+    exec "$SKILL/dirty.sh"
     ;;
   monitor)
     "$SKILL/status.sh" "${1:-main}"
@@ -169,11 +176,13 @@ CLI (run from your main worktree shell)
   Start
     lanes start <lane>     Launch Claude Code in a worktree (creates if needed)
     lanes start            Same, with a timestamp name like lane-20261016-143005
+                           On exit, offers to commit any uncommitted work
 
   Look around
     lanes monitor          Status + overlap across all lanes
     lanes log              Commit history for every lane
     lanes list             List worktrees and lane branches
+    lanes dirty            List worktrees with uncommitted work (exit 1 if any)
     lanes inspect <lane>   Detail view of a single lane
     lanes diff <lane>      Show full diff a lane would land (merge-base...lane)
     lanes diff --stat <lane>  Same, summarized by file

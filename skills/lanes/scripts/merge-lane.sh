@@ -55,6 +55,7 @@ echo "Integrating $LANE into $CURRENT"
 echo "  raw: $RAW_AHEAD ahead / $BEHIND behind"
 echo "  unintegrated commits (patch-id aware): $NEW_COUNT"
 echo
+warn_if_dirty "$LANE"
 
 if [ "$NEW_COUNT" = "0" ]; then
   echo "Nothing to integrate: every commit on $LANE is already present on $CURRENT (by SHA or by patch)."

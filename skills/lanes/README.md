@@ -55,6 +55,7 @@ A timestamp lane gets a readable branch name on its first `/wrap`, `/yolo` or `/
 | Status + overlap across all lanes | `lanes monitor` |
 | Commit history for all lanes | `lanes log` |
 | List worktrees/branches | `lanes list` |
+| Find lanes with uncommitted work | `lanes dirty` |
 | Detail view of one lane | `lanes inspect feat-auth` |
 
 ### 4. Bring a lane home (from your main worktree shell)
@@ -90,6 +91,7 @@ Tradeoff: the merged order interleaves both sides around the common ancestor and
 - **Just want to save state?** `/wrap` (lazy) or `/checkpoint <msg>` (you write it).
 - **About to step away?** `/handoff` writes a markdown summary other lanes can read.
 - **Curious what other lanes are doing?** `lanes monitor`.
+- **Worried you left something uncommitted?** `lanes dirty`. When a `lanes start` session exits with uncommitted work, it offers to commit it (with an auto-written message or your own). You also get a heads-up from `lanes merge`/`archive` when a lane has some, and (with the optional Stop hook `install.sh` mentions) inside the Claude session itself.
 - **Ready to integrate?** `lanes merge` to see options, `lanes next` to auto-merge the safest, or `lanes merge <name>` for a specific lane.
 - **Forgot everything?** `lanes help`.
 

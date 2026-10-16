@@ -92,3 +92,42 @@ archived_branches() {
   { git config --get-regexp '^branch\..*\.lanesarchived$' 2>/dev/null || true; } \
     | awk '$2 == "true" { k=$1; sub(/^branch\./, "", k); sub(/\.lanesarchived$/, "", k); print k }'
 }
+
+# dirty_summary <worktree path>: echo a short note on uncommitted work there
+# ("2 modified, 1 untracked"), or nothing when the tree is clean.
+dirty_summary() {
+  git -C "$1" status --porcelain 2>/dev/null | awk '
+    /^\?\?/ { u++; next } { m++ }
+    END { s = ""
+          if (m) s = m " modified"
+          if (u) s = s (s ? ", " : "") u " untracked"
+          if (s) print s }'
+}
+
+# dirty_lanes [skip branch]: echo "short<TAB>summary" for every worktree with
+# uncommitted work, except the one on <skip branch>.
+dirty_lanes() {
+  local path branch summary
+  git worktree list --porcelain | awk '
+    /^worktree / { p=substr($0, 10) }
+    /^branch /   { b=$2; sub("refs/heads/", "", b); print p "\t" b }
+  ' | while IFS='	' read -r path branch; do
+    [ "$branch" = "${1:-}" ] && continue
+    summary="$(dirty_summary "$path")"
+    [ -n "$summary" ] && printf '%s\t%s\n' "${branch#worktree-}" "$summary"
+  done
+  return 0
+}
+
+# warn_if_dirty <branch>: print a heads-up when that lane's worktree has
+# uncommitted work, which merging or archiving the lane would leave behind.
+warn_if_dirty() {
+  local dir summary
+  dir="$(lane_dir "$1")"
+  [ -n "$dir" ] || return 0
+  summary="$(dirty_summary "$dir")"
+  [ -n "$summary" ] || return 0
+  echo "Heads up: ${1#worktree-} has uncommitted work ($summary). Only commits"
+  echo "  count here; run /wrap in that lane so it isn't left behind."
+  echo
+}

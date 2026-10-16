@@ -14,6 +14,7 @@ That symlinks:
 - `~/.local/bin/lanes` → `~/lanes/bin/lanes` (shell dispatcher; needs `~/.local/bin` on `PATH`)
 - `~/.claude/skills/lanes` → `~/lanes/skills/lanes` (skill Claude reads)
 - `~/.claude/commands/<name>.md` → `~/lanes/commands/<name>.md` (slash commands)
+- `~/.claude/hooks/lanes-dirty-reminder.sh` → `~/lanes/hooks/dirty-reminder.sh` (optional Stop hook that reminds you about uncommitted lane work; `install.sh` prints the settings snippet)
 
 ## Usage
 
@@ -29,6 +30,7 @@ See [`skills/lanes/README.md`](skills/lanes/README.md) for the full cheat sheet.
 bin/lanes              shell dispatcher
 skills/lanes/          Claude Code skill (SKILL.md + scripts)
 commands/              slash command markdown
+hooks/                 Claude Code hooks
 install.sh             symlink installer
 ```
 

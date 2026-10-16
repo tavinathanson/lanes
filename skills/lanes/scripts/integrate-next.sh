@@ -120,6 +120,12 @@ case "$MODE" in
       echo "($archived_count archived lane(s) hidden; 'lanes archive' lists them.)"
       echo
     fi
+    dirty="$(dirty_lanes "$CURRENT" | cut -f1 | paste -sd ' ' -)"
+    if [ -n "$dirty" ]; then
+      echo "Uncommitted work (not mergeable until committed): $dirty"
+      echo "  'lanes dirty' for details."
+      echo
+    fi
     if [ -z "$sorted" ]; then
       echo "Run a lane to completion, then 'lanes merge <lane>'."
       exit 0

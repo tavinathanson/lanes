@@ -38,7 +38,7 @@ In the main checkout, "the current lane" just means the current branch (usually 
 
 Two ways to drive this skill:
 
-- **CLI (`lanes ...`)** — for cross-lane orchestration. Run from the main worktree shell. Subcommands: `start`, `monitor`, `log`, `list`, `inspect <lane>`, `merge` / `merge <lane>`, `next`.
+- **CLI (`lanes ...`)** — for cross-lane orchestration. Run from the main worktree shell. Subcommands: `start`, `monitor`, `log`, `list`, `dirty`, `inspect <lane>`, `merge` / `merge <lane>`, `next`.
 - **Slash commands** — only for actions that mutate the *current* lane: `/checkpoint`, `/wrap`, `/handoff`. There are intentionally no slash commands for cross-lane inspection or integration; if the user asks while inside a lane, run the CLI via Bash (e.g. `lanes monitor`).
 
 The CLI scripts live under `skills/lanes/scripts/` and Claude can invoke them directly when summarizing lane state.
