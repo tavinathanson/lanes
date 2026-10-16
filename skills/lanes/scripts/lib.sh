@@ -41,7 +41,7 @@ lane_dir() {
 # but keeps its author timestamp and subject, which must already be on <current>.
 unintegrated_shas() {
   git log --cherry-pick --right-only --no-merges --reverse --format='%H%x09%at %s' "$1...$2" 2>/dev/null \
-    | awk -F '\t' 'NR == FNR { landed[$0] = 1; next } !($2 in landed) { print $1 }' \
+    | awk -F '\t' 'FILENAME != "-" { landed[$0] = 1; next } !($2 in landed) { print $1 }' \
         <(git log --no-merges --format='%at %s' "$2..$1" 2>/dev/null) -
 }
 
