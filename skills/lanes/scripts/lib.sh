@@ -104,9 +104,10 @@ archived_branches() {
 }
 
 # dirty_summary <worktree path>: echo a short note on uncommitted work there
-# ("2 modified, 1 untracked"), or nothing when the tree is clean.
+# ("2 modified, 1 untracked"), or nothing when the tree is clean. The handoff
+# file is lanes' own and never committed, so it doesn't count.
 dirty_summary() {
-  git -C "$1" status --porcelain 2>/dev/null | awk '
+  git -C "$1" status --porcelain -- . ':!.claude-lane-status.md' 2>/dev/null | awk '
     /^\?\?/ { u++; next } { m++ }
     END { s = ""
           if (m) s = m " modified"
