@@ -12,8 +12,8 @@ git worktree list --porcelain | awk '
     print path "|" branch
   }
 ' | while IFS='|' read -r path branch; do
-  short="${path##*/}"
-  if [ -n "$FILTER" ] && [ "$FILTER" != "$short" ] && [ "$FILTER" != "$branch" ]; then
+  short="${branch#worktree-}"
+  if [ -n "$FILTER" ] && [ "$FILTER" != "$short" ] && [ "$FILTER" != "$branch" ] && [ "$FILTER" != "${path##*/}" ]; then
     continue
   fi
   echo "========================================"

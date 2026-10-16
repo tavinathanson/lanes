@@ -22,5 +22,10 @@ if git rev-parse --verify --quiet "refs/heads/$NEW" >/dev/null; then
   exit 0
 fi
 
-git branch -m "$NEW"
+# A sandbox may block the follow-up .git/config write after the ref is renamed;
+# that's harmless for an unpushed lane, so judge success by the branch itself.
+git branch -m "$NEW" 2>/dev/null || [ "$(git branch --show-current)" = "$NEW" ] || {
+  echo "Lane not renamed: git branch -m failed."
+  exit 0
+}
 echo "Lane renamed: $BRANCH -> $NEW (lanes start ${NEW#worktree-} reopens it)"

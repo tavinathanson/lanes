@@ -29,7 +29,7 @@ rows=""
 while IFS='|' read -r path branch; do
   [ -z "$branch" ] && continue
   [ "$branch" = "$CURRENT" ] && continue
-  short="${path##*/}"
+  short="${branch#worktree-}"
 
   # Patch-id-aware count: matches what merge-lane.sh will see.
   new_count="$(git rev-list --cherry-pick --right-only --no-merges \
