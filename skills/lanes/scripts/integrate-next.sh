@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# integrate-next.sh — rank lanes by integration safety.
+# integrate-next.sh: rank lanes by integration safety.
 #
 # Modes:
-#   list  (default) — print a table of mergeable lanes, ranked safest first.
-#   pick            — print the top recommendation with one-line reasoning.
-#   name            — print just the top recommendation's lane name (for scripts).
+#   list  (default): print a table of mergeable lanes, ranked safest first.
+#   pick           : print the top recommendation with one-line reasoning.
+#   name           : print just the top recommendation's lane name (for scripts).
 #
-# "Safest" heuristic: fewest *unintegrated* commits (patch-id aware), tiebreak
-# by lane name. A lane with 0 unintegrated commits is skipped, as is a lane that
-# a real 3-way merge shows would not change $CURRENT at all (fully superseded).
-# The list splits lanes into today's (tip committed today, local time) and
-# older ones, so stale lanes don't crowd out current work.
+# "Safest" ranking, in order:
+#   1. today's lanes (tip committed today, local time) before older ones
+#   2. lanes that merge cleanly before lanes that would conflict
+#   3. fewest lines changed (merge-base...lane)
+#   4. lane name
+# A lane with 0 unintegrated commits (patch-id aware) is skipped, as is a lane
+# that a real 3-way merge shows would not change $CURRENT at all.
 set -euo pipefail
 
 # shellcheck source=lib.sh
@@ -21,8 +23,8 @@ ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
 CURRENT="$(git branch --show-current)"
-TODAY="$(date +%Y-%m-%d)"
 
+# Row fields (tab-separated): older conflict lines short new behind merge age
 rows=""
 while IFS='|' read -r path branch; do
   [ -z "$branch" ] && continue
@@ -35,33 +37,31 @@ while IFS='|' read -r path branch; do
   [ -z "$new_count" ] && new_count=0
   [ "$new_count" -eq 0 ] && continue
 
-  # Drop lanes that a real merge shows contribute nothing (content already on
-  # $CURRENT, but patch-id changed by a past conflict resolution). Conservative:
-  # only hides clean merges whose result equals $CURRENT.
-  lane_adds_nothing "$CURRENT" "$branch" && continue
+  merge="$(merge_outcome "$CURRENT" "$branch")"
+  [ "$merge" = nothing ] && continue
 
+  older=1; lane_is_today "$branch" && older=0
+  conflict=0; [ "$merge" = conflict ] && conflict=1
+  lines="$(git diff --numstat "$CURRENT...$branch" | awk '{ s += $1 + $2 } END { print s + 0 }')"
   behind="$(git rev-list --count "$branch..$CURRENT" 2>/dev/null || echo 0)"
-  tip_day="$(git log -1 --format=%cd --date=format-local:%Y-%m-%d "$branch")"
-  age="$(git log -1 --format=%cr "$branch")"
-  rows="$rows$new_count	$behind	$short	$branch	$([ "$tip_day" = "$TODAY" ] && echo today || echo older)	$age
+  rows="$rows$older	$conflict	$lines	$short	$new_count	$behind	$merge	$(lane_age "$branch")
 "
 done < <(git worktree list --porcelain | awk '
   /^worktree / { path=$2 }
   /^branch /   { b=$2; sub("refs/heads/", "", b); print path "|" b }
 ')
 
-# Sort ascending by new_count, tiebreak by lane name.
-sorted="$(printf '%s' "$rows" | sort -t '	' -k1,1n -k3,3)"
+sorted="$(printf '%s' "$rows" | sort -t '	' -k1,1n -k2,2n -k3,3n -k4,4)"
 
-# print_section <heading> <today|older>: print the sorted rows in that bucket.
+# print_section <heading> <0|1>: print the sorted rows with that 'older' flag.
 print_section() {
   local section
-  section="$(printf '%s\n' "$sorted" | awk -F '\t' -v b="$2" '$5 == b')"
+  section="$(printf '%s\n' "$sorted" | awk -F '\t' -v o="$2" '$1 == o')"
   [ -z "$section" ] && return 0
   echo "  $1"
-  printf "    %-30s %6s %7s  %s\n" "LANE" "NEW" "BEHIND" "LAST COMMIT"
-  printf '%s\n' "$section" | while IFS='	' read -r new behind short _ _ age; do
-    printf "    %-30s %6s %7s  %s\n" "$short" "$new" "$behind" "$age"
+  printf "    %-30s %5s %7s %7s  %-9s %s\n" "LANE" "NEW" "LINES" "BEHIND" "MERGE" "LAST COMMIT"
+  printf '%s\n' "$section" | while IFS='	' read -r _ _ lines short new behind merge age; do
+    printf "    %-30s %5s %7s %7s  %-9s %s\n" "$short" "$new" "$lines" "$behind" "$merge" "$age"
   done
   echo
 }
@@ -76,23 +76,20 @@ case "$MODE" in
       echo "Run a lane to completion, then 'lanes merge <lane>'."
       exit 0
     fi
-    print_section "Today:" today
-    print_section "Older:" older
+    print_section "Today:" 0
+    print_section "Older:" 1
     echo "Run: lanes merge <lane>"
-    echo "Or:  lanes next        # auto-merge the safest one"
+    echo "Or:  lanes next        # auto-merge the top one"
     ;;
   pick)
     if [ -z "$sorted" ]; then
       echo "No lanes have unintegrated commits. Nothing to recommend."
       exit 0
     fi
-    top="$(printf '%s\n' "$sorted" | head -n1)"
-    new="$(printf '%s' "$top" | cut -f1)"
-    behind="$(printf '%s' "$top" | cut -f2)"
-    short="$(printf '%s' "$top" | cut -f3)"
+    IFS='	' read -r _ _ lines short new behind merge age <<<"$(printf '%s\n' "$sorted" | head -n1)"
     echo "Recommended next: $short"
-    echo "  $new new commit(s) to integrate, $behind behind $CURRENT."
-    echo "  (Heuristic: smallest unintegrated changeset wins. For nuance, run 'lanes monitor'.)"
+    echo "  $new new commit(s), $lines line(s) changed, $behind behind $CURRENT, merge: $merge, last commit $age."
+    echo "  (Ranking: today's lanes first, then clean merges, then smallest change. For nuance, run 'lanes monitor'.)"
     echo
     echo "Run: lanes merge $short"
     ;;
@@ -100,7 +97,7 @@ case "$MODE" in
     if [ -z "$sorted" ]; then
       exit 0
     fi
-    printf '%s\n' "$sorted" | head -n1 | cut -f3
+    printf '%s\n' "$sorted" | head -n1 | cut -f4
     ;;
   *)
     echo "usage: integrate-next.sh [list|pick|name]" >&2

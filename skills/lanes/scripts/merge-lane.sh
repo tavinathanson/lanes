@@ -68,6 +68,20 @@ echo "Commits to land:"
 printf '%s\n' "$NEW_SHAS" | xargs -r -n1 git --no-pager log --oneline -1
 echo
 
+# Stale lanes are easy to merge by accident (e.g. via 'lanes next'). Warn, and
+# when someone is at the terminal, ask before going on.
+if ! lane_is_today "$LANE"; then
+  echo "Heads up: ${LANE#worktree-} is an old lane; its last commit was $(lane_age "$LANE")."
+  if [ -t 0 ]; then
+    read -r -p "Merge it anyway? [y/N] " answer
+    case "$answer" in
+      [yY]*) ;;
+      *) echo "Not merged."; exit 1 ;;
+    esac
+  fi
+  echo
+fi
+
 # A busy working tree is fine when nothing is staged, the integration is
 # conflict-free, and it touches none of the dirty or untracked paths: git then
 # carries the local changes through untouched. Anything else refuses before

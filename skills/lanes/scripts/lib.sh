@@ -27,19 +27,42 @@ resolve_lane() {
   return 1
 }
 
-# lane_adds_nothing <current> <lane> — return 0 (true) when integrating <lane>
-# into <current> would not change <current> at all: a clean 3-way merge whose
-# result tree is byte-identical to <current>'s tree. This is merge-base aware,
-# so it catches lanes that are fully superseded even when the patch-id check
-# (git rev-list --cherry-pick) still flags a commit because a conflict
-# resolution changed its patch.
-#
-# Deliberately conservative: any merge conflict, or any net change, returns 1
-# (false). Needs git >= 2.38 for `merge-tree --write-tree`; on older git or any
-# error it returns 1, falling back to the existing behavior (lane stays shown).
+# merge_outcome <current> <lane>: echo what a real 3-way merge of <lane> into
+# <current> would do, without touching the working tree:
+#   nothing   clean, and the result is byte-identical to <current> (a fully
+#             superseded lane, even when a conflict resolution changed a
+#             commit's patch-id so `git rev-list --cherry-pick` still flags it)
+#   clean     clean, with real changes
+#   conflict  the merge would conflict
+#   unknown   git < 2.38 (no `merge-tree --write-tree`) or another error
+merge_outcome() {
+  local current="$1" lane="$2" merged rc=0
+  merged="$(git merge-tree --write-tree "$current" "$lane" 2>/dev/null)" || rc=$?
+  case "$rc" in
+    0) if [ "$merged" = "$(git rev-parse --verify --quiet "$current^{tree}")" ]; then
+         echo nothing
+       else
+         echo clean
+       fi ;;
+    1) echo conflict ;;
+    *) echo unknown ;;
+  esac
+}
+
+# lane_adds_nothing <current> <lane>: return 0 (true) when integrating <lane>
+# would not change <current> at all. Conservative: a conflict, any net change,
+# or an unknown outcome returns 1, so the lane stays shown.
 lane_adds_nothing() {
-  local current="$1" lane="$2" merged base_tree
-  merged="$(git merge-tree --write-tree "$current" "$lane" 2>/dev/null)" || return 1
-  base_tree="$(git rev-parse --verify --quiet "$current^{tree}")" || return 1
-  [ "$merged" = "$base_tree" ]
+  [ "$(merge_outcome "$1" "$2")" = nothing ]
+}
+
+# lane_is_today <branch>: return 0 when the branch tip was committed today
+# (local time). Used to tell current work apart from stale lanes.
+lane_is_today() {
+  [ "$(git log -1 --format=%cd --date=format-local:%Y-%m-%d "$1")" = "$(date +%Y-%m-%d)" ]
+}
+
+# lane_age <branch>: echo how long ago the branch tip was committed ("3 days ago").
+lane_age() {
+  git log -1 --format=%cr "$1"
 }

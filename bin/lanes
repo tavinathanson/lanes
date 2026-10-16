@@ -169,6 +169,13 @@ LANE NAMES
   The git branch is "worktree-<name>" (Claude Code's convention) — tooling
   resolves either form, so you almost never type the branch name.
 
+RANKING
+
+  "Safest" means: today's lanes before older ones, then lanes that merge
+  cleanly before ones that would conflict, then fewest lines changed.
+  Merging a lane whose last commit isn't from today prints a warning and,
+  at an interactive terminal, asks before going on.
+
 INTEGRATION MODE
 
   lanes merge picks the mode automatically based on how many *unintegrated*
